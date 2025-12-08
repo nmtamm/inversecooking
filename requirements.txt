@@ -9,4 +9,4 @@ tqdm
 lmdb
 tensorflow
 tensorboardX
-evaluate
+rouge-score
