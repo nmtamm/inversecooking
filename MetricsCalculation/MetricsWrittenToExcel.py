@@ -3,7 +3,7 @@ import json
 from openpyxl import Workbook, load_workbook
 
 # Define the root directory
-root_dir = "path-to-your-json-files-for-metrics-calculation"
+root_dir = "path to your directory containing JSON files"
 excel_file_path = os.path.join(root_dir, "MetricsSummary.xlsx")
 
 # Create Excel file if it doesn't exist

@@ -19,7 +19,6 @@ def get_full_ingr_indices_from_vocab(gt_ingrs, ingr_synonym_vocab_path):
     with open(ingr_synonym_vocab_path, "r", encoding="utf-8") as f:
         ingr_vocab = json.load(f)
 
-    # Build a mapping from synonym to index
     synonym_to_index = {}
     for idx, v in ingr_vocab.items():
         if isinstance(v, list):
@@ -28,12 +27,11 @@ def get_full_ingr_indices_from_vocab(gt_ingrs, ingr_synonym_vocab_path):
         elif isinstance(v, str):
             synonym_to_index[v] = int(idx)
 
-    # Find indices for ground truth ingredients
-    gt_ingr_indices = []
+    gt_ingr_pairs = []
     for ingr in gt_ingrs:
         if ingr in synonym_to_index:
-            gt_ingr_indices.append(synonym_to_index[ingr])
-    return gt_ingr_indices
+            gt_ingr_pairs.append((ingr, synonym_to_index[ingr]))
+    return gt_ingr_pairs
 
 
 def get_pred_ingr_indices_from_vocab(ingrs, ingr_vocab_path):
@@ -68,6 +66,12 @@ def label2onehot(labels, pad_value):
     return one_hot
 
 
+def indices_to_brief_names(indices, brief_ingr_vocab_path):
+    with open(brief_ingr_vocab_path, "r", encoding="utf-8") as f:
+        brief_vocab = json.load(f)  # brief_vocab should be a list of ingredient names
+    return [brief_vocab[idx] for idx in indices if idx < len(brief_vocab)]
+
+
 # Step 3: Calculate IoU and F1 metric:
 def evaluate_ingredient_pairs(data_folder, full_ingr_path, brief_ingr_path, vocab_size):
     # List all files in the data folder
@@ -83,7 +87,6 @@ def evaluate_ingredient_pairs(data_folder, full_ingr_path, brief_ingr_path, voca
     for gt_file in gt_files:
         # Find the corresponding predicted file
         prefix = gt_file.replace("_GroundTruth.json", "")
-        print("Processing:", prefix)
         pred_file = prefix + "_Predicted.json"
         gt_path = os.path.join(data_folder, gt_file)
         pred_path = os.path.join(data_folder, pred_file)
@@ -105,9 +108,15 @@ def evaluate_ingredient_pairs(data_folder, full_ingr_path, brief_ingr_path, voca
         pred_ingrs = pred_json.get("ingredients", [])
         pred_instrs = pred_json.get("instructions", [])
 
-        # Convert to indices
-        gt_indices = get_full_ingr_indices_from_vocab(gt_ingrs, full_ingr_path)
-        pred_indices = get_full_ingr_indices_from_vocab(pred_ingrs, full_ingr_path)
+        # Convert to indices (now returns list of tuples)
+        gt_ingr_pairs = get_full_ingr_indices_from_vocab(gt_ingrs, full_ingr_path)
+        pred_ingr_pairs = get_full_ingr_indices_from_vocab(pred_ingrs, full_ingr_path)
+
+        # Extract indices from the (name, index) tuples
+        gt_indices = [idx for _, idx in gt_ingr_pairs]
+        pred_indices = [idx for _, idx in pred_ingr_pairs]
+        gt_ingredients_names = indices_to_brief_names(gt_indices, brief_ingr_path)
+        pred_ingredients_names = indices_to_brief_names(pred_indices, brief_ingr_path)
 
         if gt_indices and pred_indices:
             # Convert to tensors for one-hot encoding
@@ -158,6 +167,10 @@ def evaluate_ingredient_pairs(data_folder, full_ingr_path, brief_ingr_path, voca
 
             results.append(
                 {
+                    "gt_ingredients": gt_ingredients_names,
+                    "pred_ingredients": pred_ingredients_names,
+                    "gt_indices": gt_indices,
+                    "pred_indices": pred_indices,
                     "prefix": prefix,
                     "iou": iou,
                     "f1": ret_metrics["f1"][0] if ret_metrics["f1"] else None,
@@ -175,54 +188,121 @@ vocab_path = os.path.join(root_dir, "data", "ingr_vocab.pkl")
 with open(vocab_path, "rb") as f:
     ingr_vocab = pickle.load(f)
 
-full_vocab_path = "path-to-your-recipe1m_vocab_ingrs.json"
+full_vocab_path = "path to your recipe1m_vocab_ingrs.json"
 brief_vocab_path = os.path.join(root_dir, "data", "ingr_vocab.json")
 
-data_folder = "path-to-your-evaluation-data-folder"
 
-# Evaluate ingredient pairs
-result, predicted_instr_list, ground_truth_instr_list = evaluate_ingredient_pairs(
-    data_folder=data_folder,
-    full_ingr_path=full_vocab_path,
-    brief_ingr_path=brief_vocab_path,
-    vocab_size=len(ingr_vocab),
-)
+def calculate_metrics_from_folder(data_folder):
+    # Evaluate ingredient pairs
+    result, predicted_instr_list, ground_truth_instr_list = evaluate_ingredient_pairs(
+        data_folder=data_folder,
+        full_ingr_path=full_vocab_path,
+        brief_ingr_path=brief_vocab_path,
+        vocab_size=len(ingr_vocab),
+    )
 
-# Calculate averages
-ious = [r["iou"] for r in result if r["iou"] is not None]
-f1s = [r["f1"] for r in result if r["f1"] is not None]
-avg_iou = sum(ious) / len(ious) if ious else 0
-avg_f1 = sum(f1s) / len(f1s) if f1s else 0
+    # Calculate averages
+    ious = [r["iou"] for r in result if r["iou"] is not None]
+    f1s = [r["f1"] for r in result if r["f1"] is not None]
+    avg_iou = sum(ious) / len(ious) if ious else 0
+    avg_f1 = sum(f1s) / len(f1s) if f1s else 0
 
-# Calculate ROUGE-L
-scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
-rouge_l_scores = [
-    scorer.score(gt, pred)["rougeL"].fmeasure
-    for pred, gt in zip(predicted_instr_list, ground_truth_instr_list)
-]
-avg_rouge_l = sum(rouge_l_scores) / len(rouge_l_scores) if rouge_l_scores else 0
+    # Calculate ROUGE-L
+    scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
+    rouge_l_scores = [
+        scorer.score(gt, pred)["rougeL"].fmeasure
+        for pred, gt in zip(predicted_instr_list, ground_truth_instr_list)
+    ]
+    avg_rouge_l = sum(rouge_l_scores) / len(rouge_l_scores) if rouge_l_scores else 0
 
-# Calculate SacreBLEU
-if predicted_instr_list and ground_truth_instr_list:
-    bleu = sacrebleu.corpus_bleu(predicted_instr_list, [ground_truth_instr_list])
-    avg_bleu = bleu.score
-else:
-    avg_bleu = 0
+    # Calculate SacreBLEU
+    if predicted_instr_list and ground_truth_instr_list:
+        bleu = sacrebleu.corpus_bleu(predicted_instr_list, [ground_truth_instr_list])
+        avg_bleu = bleu.score
+    else:
+        avg_bleu = 0
 
-# Define output path
-output_path = os.path.join(data_folder, "Revamping_Metrics.json")
+    # Define output path
+    output_path = os.path.join(data_folder, "Revamping_Metrics.json")
 
-# Prepare the output dictionary
-output_data = {
-    "average_metrics": {
-        "Average IoU": avg_iou,
-        "Average F1": avg_f1,
-        "Average ROUGE-L": avg_rouge_l,
-        "Average SacreBLEU": avg_bleu,
-    },
-    "results": result,
-}
+    # Prepare the output dictionary
+    output_data = {
+        "average_metrics": {
+            "Average IoU": avg_iou,
+            "Average F1": avg_f1,
+            "Average ROUGE-L": avg_rouge_l,
+            "Average SacreBLEU": avg_bleu,
+        },
+        "results": result,
+    }
 
-# Write to JSON file
-with open(output_path, "w", encoding="utf-8") as f:
-    json.dump(output_data, f, indent=2, ensure_ascii=False)
+    # Write to JSON file
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+
+
+def calculate_metrics_from_folders(data_folder):
+    for folder_name in os.listdir(data_folder):
+        folder_path = os.path.join(data_folder, folder_name)
+        if not os.path.isdir(folder_path):
+            continue  # Skip files, only process directories
+
+        print(f"Processing {folder_name}...")
+
+        # Evaluate ingredient pairs in the subfolder
+        result, predicted_instr_list, ground_truth_instr_list = (
+            evaluate_ingredient_pairs(
+                data_folder=folder_path,
+                full_ingr_path=full_vocab_path,
+                brief_ingr_path=brief_vocab_path,
+                vocab_size=len(ingr_vocab),
+            )
+        )
+
+        # Calculate averages
+        ious = [r["iou"] for r in result if r["iou"] is not None]
+        f1s = [r["f1"] for r in result if r["f1"] is not None]
+        avg_iou = sum(ious) / len(ious) if ious else 0
+        avg_f1 = sum(f1s) / len(f1s) if f1s else 0
+
+        # Calculate ROUGE-L
+        scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
+        rouge_l_scores = [
+            scorer.score(gt, pred)["rougeL"].fmeasure
+            for pred, gt in zip(predicted_instr_list, ground_truth_instr_list)
+        ]
+        avg_rouge_l = sum(rouge_l_scores) / len(rouge_l_scores) if rouge_l_scores else 0
+
+        # Calculate SacreBLEU
+        if predicted_instr_list and ground_truth_instr_list:
+            bleu = sacrebleu.corpus_bleu(
+                predicted_instr_list, [ground_truth_instr_list]
+            )
+            avg_bleu = bleu.score
+        else:
+            avg_bleu = 0
+
+        # Define output path in the parent directory with subfolder name
+        output_path = os.path.join(data_folder, folder_name + ".json")
+
+        # Prepare the output dictionary
+        output_data = {
+            "average_metrics": {
+                "Average IoU": avg_iou,
+                "Average F1": avg_f1,
+                "Average ROUGE-L": avg_rouge_l,
+                "Average SacreBLEU": avg_bleu,
+            },
+            "results": result,
+        }
+
+        # Write to JSON file
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
+
+
+# Usage:
+# dir = "path to your directory folder or rootfolder containing subfolders"
+# calculate_metrics_from_folder(dir)
+# or
+# calculate_metrics_from_folders(dir)

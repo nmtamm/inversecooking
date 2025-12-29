@@ -1,0 +1,74 @@
+[
+  {
+    "number": 1206,
+    "pair id for retrieval": "Pair1243",
+    "ground truth recipe id": "065441d199",
+    "image id": "Imagef9e415b34e.jpg"
+  },
+  {
+    "number": 2052,
+    "pair id for retrieval": "Pair2119",
+    "ground truth recipe id": "0a6760e206",
+    "image id": "Imageb8401ee7e7.jpg"
+  },
+  {
+    "number": 2914,
+    "pair id for retrieval": "Pair3009",
+    "ground truth recipe id": "0eca9d8f58",
+    "image id": "Image6a4c02bce5.jpg"
+  },
+  {
+    "number": 3927,
+    "pair id for retrieval": "Pair4062",
+    "ground truth recipe id": "13ce97fe33",
+    "image id": "Image43862f3075.jpg"
+  },
+  {
+    "number": 6636,
+    "pair id for retrieval": "Pair6855",
+    "ground truth recipe id": "21d6a60d64",
+    "image id": "Image75f651bb4d.jpg"
+  },
+  {
+    "number": 13658,
+    "pair id for retrieval": "Pair14128",
+    "ground truth recipe id": "452e0ff98b",
+    "image id": "Image30289fed55.jpg"
+  },
+  {
+    "number": 14166,
+    "pair id for retrieval": "Pair14651",
+    "ground truth recipe id": "47a6b820ee",
+    "image id": "Imagebe6fd1315e.jpg"
+  },
+  {
+    "number": 14347,
+    "pair id for retrieval": "Pair14835",
+    "ground truth recipe id": "487c3faff2",
+    "image id": "Image16251c6bbd.jpg"
+  },
+  {
+    "number": 15070,
+    "pair id for retrieval": "Pair15581",
+    "ground truth recipe id": "4c6ff09fa9",
+    "image id": "Image271be18eb0.jpg"
+  },
+  {
+    "number": 19885,
+    "pair id for retrieval": "Pair20554",
+    "ground truth recipe id": "659b830785",
+    "image id": "Imagec4eeab7e5e.jpg"
+  },
+  {
+    "number": 35326,
+    "pair id for retrieval": "Pair36499",
+    "ground truth recipe id": "b521add13b",
+    "image id": "Image09c7e037dc.jpg"
+  },
+  {
+    "number": 48467,
+    "pair id for retrieval": "Pair50048",
+    "ground truth recipe id": "f96bfbcf9d",
+    "image id": "Image50331b752a.jpg"
+  }
+]
